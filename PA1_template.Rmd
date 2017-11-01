@@ -5,21 +5,186 @@ output:
     keep_md: true
 ---
 
+```{r }
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+
+
+##Load libraries
+```{r }
+library(ggplot2)
+library(dplyr)
+```
 
 ## Loading and preprocessing the data
+```{r }
+my_data<-read.csv("~/MyProjects/representative projects/week2/activity.csv", header=TRUE)
+head(my_data)
+tail(my_data)
+str(my_data)
 
+```
 
 
 ## What is mean total number of steps taken per day?
+##2.histogram of number steps taken each day
+#Summarise data, removing missing numbers, formating dates and summing up total number of steps taken
+```{r}
+my_data$newformat<-as.character(my_data$date)
+my_data$newformat<-as.Date(my_data$newformat)
+
+k<-my_data%>%
+        select(steps, newformat)%>%
+        filter(!is.na(steps))%>%
+        group_by(newformat)%>%
+        summarise(SumSteps=sum(steps))
+
+```
+
+#Putting the numbers on histogram
+
+```{r}
+hist(k$SumSteps, main = "Distribution of Total Number of Steps", 
+     xlab = "Number of Steps", 
+     ylab = "Frequency", 
+     breaks=10,   col = "navy")
+
+```
+
+#3.Mean and median number of steps taken each day
+```{r}
+summary(k$SumSteps)
+```
+
 
 
 
 ## What is the average daily activity pattern?
 
+#4. 5 minutes time series plot of the average number of steps taken
+# Takinf the means of each 5 minutes interval, exluding missing data
+```{r}
+
+j<-my_data%>%
+        select(steps, interval)%>%
+        filter(!is.na(steps))%>%
+        group_by(interval)%>%
+        summarise(AvgSteps=mean(steps))
+j
+
+```
+
+#Plotting the data, formating the intervals into the real time of he day
+```{r}
+
+ggplot(j, aes(y=AvgSteps, x=strptime(sprintf("%04d", j$interval), format="%H%M")))+geom_line()+labs(x= "Time of the day") + labs(y="Average Steps taken")+labs(title="Pattern of a day")
+
+
+```
+
+Here we see the patterns of the day
+
+#5.The 5-minute interval that, on average, contains the maximum number of steps
+```{r}
+
+   j%>%
+        select(AvgSteps, interval)%>%
+         filter(AvgSteps==max(AvgSteps))
+
+      
+
+```
+
+Here we see that the average maximum number of steps was taken in the 835th inteval
+
 
 
 ## Imputing missing values
 
+#6.Code to describe and show a strategy for imputing missing data
+```{r}
+n.missing<-sum(is.na(my_data))#number of missing values in the dataset
+
+```
+
+
+Imputting missing data by mean number of steps taken a day.
+```{r}
+ 
+
+StepsImputed<- inner_join(my_data, j,  by="interval") %>% 
+                    mutate(steps=ifelse(is.na(steps), AvgSteps, steps)) %>%
+                    select(date, interval, steps)
+head(StepsImputed)
+
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+Summary of the new data, wee see there is no NAs
+
+```{r}
+summary(StepsImputed)
+```
+
+
+it's time to see new averages of steps done per day
+```{r}
+z<-StepsImputed%>%
+        select(steps, date)%>%
+        group_by(date)%>%
+        summarise(SumSteps=sum(steps))
+z 
+
+summary(z$SumSteps)
+```
+
+Wee see that the median increased by 10 steps/day.
+
+
+ #It's time to plot
+
+```{r}
+
+hist(z$SumSteps,  main = "New Distibution of Steps per day", 
+     xlab = "Steps per Day", 
+     ylab = "Frequency ", 
+     breaks=20,   col = "grey")
+
+```
+
+#8.Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+
+Determine the weekdays and weekends, based on date column, with imputed data.
+```{r}
+StepsImputed$date<-as.Date(StepsImputed$date)
+StepsImputed <- StepsImputed %>%
+    mutate(Weekdays = ifelse(weekdays(date) %in% c("Saturday","Sunday"),
+                                     "weekend","weekday"))
+           
+head(StepsImputed)
+```
+
+Number of steps taken by the day of the week
+```{r}
+a<-StepsImputed%>%
+        select(steps, interval, Weekdays)%>%
+        group_by(Weekdays, interval )%>%
+        summarise(AvgSteps=mean(steps))
+a
+```
+
+
+```{r}
+ggplot(a, aes(y=AvgSteps, x=strptime(sprintf("%04d", a$interval), format="%H%M")))+geom_line(aes(col=Weekdays))+labs(x= "Time of the day") + labs(y="Average Steps taken")
+
+```
+
+
+
